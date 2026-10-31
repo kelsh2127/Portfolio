@@ -24,6 +24,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
 function LoginPage({ onLogin }) {
     const [pw, setPw] = useState('')
     const [err, setErr] = useState('')
+    const [message, setMessage] = useState('')
     const getStoredPw = () => localStorage.getItem('admin_pw') || '123456'
 
     const submit = (e) => {
@@ -32,23 +33,35 @@ function LoginPage({ onLogin }) {
         else setErr('Incorrect password. Try again.')
     }
 
+    const resetPassword = () => {
+        localStorage.removeItem('admin_pw')
+        setPw('123456')
+        setErr('')
+        setMessage('Password reset for this browser. Sign in with 123456.')
+    }
+
     return (
         <div className="dash-login-bg">
             <div className="dash-login-box">
                 <div className="dash-login-logo"><i className="fas fa-shield-alt"></i></div>
                 <h2>Admin Portal</h2>
                 <p className="dash-login-sub">Sign in to your dashboard</p>
+                {/* <p className="dash-login-hint">Default password: <strong>123456</strong>. Password changes are saved separately in each browser.</p> */}
                 <form onSubmit={submit}>
                     <div className="dash-input-group">
                         <i className="fas fa-lock"></i>
                         <input type="password" placeholder="Enter password"
-                            value={pw} onChange={(e) => { setPw(e.target.value); setErr('') }} required />
+                            value={pw} onChange={(e) => { setPw(e.target.value); setErr(''); setMessage('') }} required />
                     </div>
                     {err && <p className="dash-err">{err}</p>}
+                    {message && <p className="dash-login-message" role="status">{message}</p>}
                     <button type="submit" className="dash-login-btn">
                         Sign In <i className="fas fa-arrow-right"></i>
                     </button>
                 </form>
+                {/* <button type="button" className="dash-reset-password" onClick={resetPassword}>
+                    Reset this browser to the default password
+                </button> */}
                 <Link to="/" className="dash-back-link">
                     <i className="fas fa-arrow-left"></i> Back to Portfolio
                 </Link>

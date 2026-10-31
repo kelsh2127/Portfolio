@@ -163,8 +163,12 @@ app.delete('/api/profile/cv', wrap(async (_req, res) => {
 }))
 
 // ── Fallback → React ──
-app.get('*', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'))
+// ── API fallback ──
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'API endpoint not found.'
+    })
 })
 
 app.listen(PORT, () => console.log('Server running on http://localhost:' + PORT))

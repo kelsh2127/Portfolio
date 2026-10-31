@@ -53,7 +53,18 @@
 .dash-login-sub {
     color: #6b7fa3;
     font-size: 14px;
-    margin-bottom: 28px;
+    margin-bottom: 8px;
+}
+
+.dash-login-hint {
+    color: #8da3c4;
+    font-size: 12px;
+    line-height: 1.5;
+    margin-bottom: 22px;
+}
+
+.dash-login-hint strong {
+    color: #0ef;
 }
 
 .dash-input-group {
@@ -92,6 +103,12 @@
     margin-bottom: 12px;
 }
 
+.dash-login-message {
+    color: #34d399;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
 .dash-login-btn {
     width: 100%;
     padding: 13px;
@@ -111,6 +128,20 @@
 
 .dash-login-btn:hover {
     opacity: 0.85;
+}
+
+.dash-reset-password {
+    margin-top: 16px;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: #8da3c4;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.dash-reset-password:hover {
+    color: #0ef;
 }
 
 .dash-back-link {

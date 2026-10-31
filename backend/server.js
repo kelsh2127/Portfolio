@@ -40,7 +40,26 @@ const profileDir = path.join(uploadsDir, 'profile')
     })
 
 // ── Middleware ──
-app.use(cors())
+// ── Middleware ──
+const allowedOrigins = [
+    'http://localhost:5173',
+    process.env.FRONTEND_URL
+].filter(Boolean)
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (
+            !origin ||
+            allowedOrigins.includes(origin) ||
+            /\.vercel\.app$/.test(new URL(origin).hostname)
+        ) {
+            return callback(null, true)
+        }
+
+        callback(new Error('Not allowed by CORS'))
+    }
+}))
+
 app.use(express.json())
 app.use('/uploads', express.static(uploadsDir))
 app.use(express.static(path.join(__dirname, '../frontend/dist')))
@@ -163,12 +182,26 @@ app.delete('/api/profile/cv', wrap(async (_req, res) => {
 }))
 
 // ── Fallback → React ──
+// ── Backend health check ──
+app.get('/', (_req, res) => {
+    res.json({
+        success: true,
+        message: 'Portfolio backend is running 🚀',
+        database: mongoose.connection.readyState === 1
+            ? 'Connected'
+            : 'Disconnected'
+    })
+})
+
 // ── API fallback ──
 app.use((req, res) => {
     res.status(404).json({
         success: false,
-        message: 'API endpoint not found.'
+        message: `API endpoint not found: ${req.method} ${req.originalUrl}`
     })
 })
 
-app.listen(PORT, () => console.log('Server running on http://localhost:' + PORT))
+// ── Start Server ──
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+})

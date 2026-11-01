@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import './Admin.css'
 
-const API = 'http://localhost:3003'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003'
 
 /* ── Confirm Dialog ── */
 function ConfirmDialog({ message, onConfirm, onCancel }) {
@@ -33,20 +33,12 @@ function LoginPage({ onLogin }) {
         else setErr('Incorrect password. Try again.')
     }
 
-    const resetPassword = () => {
-        localStorage.removeItem('admin_pw')
-        setPw('123456')
-        setErr('')
-        setMessage('Password reset for this browser. Sign in with 123456.')
-    }
-
     return (
         <div className="dash-login-bg">
             <div className="dash-login-box">
                 <div className="dash-login-logo"><i className="fas fa-shield-alt"></i></div>
                 <h2>Admin Portal</h2>
                 <p className="dash-login-sub">Sign in to your dashboard</p>
-                {/* <p className="dash-login-hint">Default password: <strong>123456</strong>. Password changes are saved separately in each browser.</p> */}
                 <form onSubmit={submit}>
                     <div className="dash-input-group">
                         <i className="fas fa-lock"></i>
@@ -59,9 +51,6 @@ function LoginPage({ onLogin }) {
                         Sign In <i className="fas fa-arrow-right"></i>
                     </button>
                 </form>
-                {/* <button type="button" className="dash-reset-password" onClick={resetPassword}>
-                    Reset this browser to the default password
-                </button> */}
                 <Link to="/" className="dash-back-link">
                     <i className="fas fa-arrow-left"></i> Back to Portfolio
                 </Link>

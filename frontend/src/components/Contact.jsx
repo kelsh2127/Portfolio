@@ -47,7 +47,7 @@ export default function Contact() {
                 <div className="contact-list">
                     <li className="myl">
                         <i className="fas fa-envelope" style={{ color: '#0ef' }}></i>
-                        kelsh7440@gmail.com
+                        kelemzhekale@gmail.com
                     </li>
                     <li className="myl">
                         <i className="fas fa-phone-alt" style={{ color: '#0ef' }}></i>
@@ -55,10 +55,18 @@ export default function Contact() {
                     </li>
                 </div>
                 <div className="contact-items">
-                    <a href="#"><i className="fab fa-facebook"></i></a>
-                    <a href="#"><i className="fab fa-twitter"></i></a>
-                    <a href="#"><i className="fab fa-instagram"></i></a>
-                    <a href="#"><i className="fab fa-linkedin"></i></a>
+                    <a href="https://www.facebook.com/profile.php?id=61561987809823" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                        <i className="fab fa-facebook"></i>
+                    </a>
+                    <a href="https://www.instagram.com/kelsh2112/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                        <i className="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.linkedin.com/in/kelem-zhekale-759a4241a" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+                        <i className="fab fa-linkedin"></i>
+                    </a>
+                    <a href="https://www.tiktok.com/@lidu_2127" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                        <i className="fab fa-tiktok"></i>
+                    </a>
                 </div>
             </div>
 

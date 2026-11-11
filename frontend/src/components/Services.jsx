@@ -3,18 +3,18 @@ import '../App.css'
 const services = [
     {
         icon: 'fas fa-code',
-        title: 'Web Development',
-        desc: 'Building responsive and modern web applications using HTML, CSS, JavaScript, and React.',
+        title: 'Full-Stack Web Development',
+        desc: 'Building responsive, scalable, and modern web applications using Next.js, Node.js, Laravel, and PostgreSQL. Developing complete solutions with seamless frontend and backend integration.',
     },
     {
         icon: 'fas fa-crop-alt',
-        title: 'UI/UX Design',
-        desc: 'Designing clean and user-friendly interfaces with a focus on user experience and accessibility.',
+        title: 'Machine Learning & AI',
+        desc: 'Exploring intelligent solutions through machine learning, data analysis, and predictive modeling using Python and machine learning technologies.',
     },
     {
         icon: 'fab fa-node-js',
-        title: 'Backend Development',
-        desc: 'Creating robust server-side applications and REST APIs using Node.js and Express.',
+        title: 'Backend & Database Development',
+        desc: 'Designing secure REST APIs, managing databases, and building reliable server-side applications using Node.js, Express.js, Laravel, and PostgreSQL.',
     },
 ]
 

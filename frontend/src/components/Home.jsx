@@ -43,10 +43,18 @@ export default function Home() {
                     building web applications and solving real-world problems through technology.
                 </p>
                 <div className="home-sc1">
-                    <a href="#"><i className="fab fa-facebook"></i></a>
-                    <a href="#"><i className="fab fa-instagram"></i></a>
-                    <a href="#"><i className="fab fa-whatsapp"></i></a>
-                    <a href="#"><i className="fab fa-tiktok"></i></a>
+                    <a href="https://www.facebook.com/profile.php?id=61561987809823" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                        <i className="fab fa-facebook"></i>
+                    </a>
+                    <a href="https://www.instagram.com/kelsh2112/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                        <i className="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.linkedin.com/in/kelem-zhekale-759a4241a" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+                        <i className="fab fa-linkedin"></i>
+                    </a>
+                    <a href="https://www.tiktok.com/@lidu_2127" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                        <i className="fab fa-tiktok"></i>
+                    </a>
                 </div>
                 <a href="#about" className="btn-box">More About Me</a>
             </div>

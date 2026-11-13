@@ -27,3 +27,11 @@ frontend/dist/
 # OS files
 .DS_Store
 Thumbs.db
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Uploaded files
+backend/uploads/
+README.md

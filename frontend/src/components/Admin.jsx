@@ -24,13 +24,35 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
 function LoginPage({ onLogin }) {
     const [pw, setPw] = useState('')
     const [err, setErr] = useState('')
-    const [message, setMessage] = useState('')
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const getStoredPw = () => localStorage.getItem('admin_pw') || '123456'
 
-    const submit = (e) => {
+    const submit = async (e) => {
         e.preventDefault()
-        if (pw === getStoredPw()) onLogin()
-        else setErr('Incorrect password. Try again.')
+        setErr('')
+        if (pw === getStoredPw()) {
+            onLogin()
+            return
+        }
+        setIsSubmitting(true)
+
+        try {
+            const response = await fetch(`${API}/api/admin/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pw })
+            })
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                setErr(data.error || 'Unable to sign in. Please try again.')
+                return
+            }
+            onLogin()
+        } catch {
+            setErr('Could not reach the login service. Please try again.')
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     return (
@@ -43,12 +65,11 @@ function LoginPage({ onLogin }) {
                     <div className="dash-input-group">
                         <i className="fas fa-lock"></i>
                         <input type="password" placeholder="Enter password"
-                            value={pw} onChange={(e) => { setPw(e.target.value); setErr(''); setMessage('') }} required />
+                            value={pw} onChange={(e) => { setPw(e.target.value); setErr('') }} required />
                     </div>
                     {err && <p className="dash-err">{err}</p>}
-                    {message && <p className="dash-login-message" role="status">{message}</p>}
-                    <button type="submit" className="dash-login-btn">
-                        Sign In <i className="fas fa-arrow-right"></i>
+                    <button type="submit" className="dash-login-btn" disabled={isSubmitting}>
+                        {isSubmitting ? 'Signing In...' : 'Sign In'} <i className="fas fa-arrow-right"></i>
                     </button>
                 </form>
                 <Link to="/" className="dash-back-link">
@@ -220,6 +241,7 @@ function ProjectsTab() {
     const [status, setStatus] = useState('')
     const [isError, setIsError] = useState(false)
     const [showForm, setShowForm] = useState(false)
+    const [editId, setEditId] = useState(null)
     const [confirm, setConfirm] = useState(null)
 
     const load = () => fetch(`${API}/api/projects`).then(r => r.json()).then(setProjects).catch(() => { })
@@ -230,16 +252,40 @@ function ProjectsTab() {
         if (file) setImgPreview(URL.createObjectURL(file))
     }
 
+    const openEdit = (p) => {
+        setEditId(p._id)
+        setForm({ title: p.title, desc: p.desc, link: p.link || '' })
+        setImgFile(null)
+        setImgPreview(p.imageUrl ? `${API}${p.imageUrl}` : null)
+        setStatus('')
+        setShowForm(true)
+    }
+
+    const resetForm = () => {
+        setShowForm(false)
+        setEditId(null)
+        setForm({ title: '', desc: '', link: '' })
+        setImgFile(null)
+        setImgPreview(null)
+    }
+
     const handleSubmit = async (e) => {
-        e.preventDefault(); setStatus('Uploading...'); setIsError(false)
+        e.preventDefault(); setStatus(editId ? 'Updating...' : 'Uploading...'); setIsError(false)
         const fd = new FormData()
         fd.append('title', form.title); fd.append('desc', form.desc); fd.append('link', form.link)
         if (imgFile) fd.append('image', imgFile)
         try {
-            const res = await fetch(`${API}/api/projects`, { method: 'POST', body: fd })
+            const url = editId ? `${API}/api/projects/${editId}` : `${API}/api/projects`
+            const method = editId ? 'PUT' : 'POST'
+            const res = await fetch(url, { method, body: fd })
             const data = await res.json()
-            if (res.ok) { setStatus('Project added!'); setForm({ title: '', desc: '', link: '' }); setImgFile(null); setImgPreview(null); setShowForm(false); load() }
-            else { setIsError(true); setStatus(data.error || 'Failed.') }
+            if (res.ok) {
+                setStatus(editId ? 'Project updated!' : 'Project added!')
+                resetForm()
+                load()
+            } else {
+                setIsError(true); setStatus(data.error || 'Failed.')
+            }
         } catch { setIsError(true); setStatus('Server error.') }
     }
 
@@ -253,7 +299,7 @@ function ProjectsTab() {
             {confirm && <ConfirmDialog message="Delete this project? This cannot be undone." onConfirm={doDelete} onCancel={() => setConfirm(null)} />}
             <div className="dash-section-bar">
                 <span>{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
-                <button className="dash-add-btn" onClick={() => { setShowForm(!showForm); setStatus('') }}>
+                <button className="dash-add-btn" onClick={() => { if (showForm) resetForm(); else { setShowForm(true); setStatus('') } }}>
                     <i className={`fas fa-${showForm ? 'times' : 'plus'}`}></i>
                     {showForm ? ' Cancel' : ' Add Project'}
                 </button>
@@ -261,7 +307,7 @@ function ProjectsTab() {
 
             {showForm && (
                 <div className="dash-form-card">
-                    <h3><i className="fas fa-plus-circle"></i> New Project</h3>
+                    <h3><i className={`fas fa-${editId ? 'edit' : 'plus-circle'}`}></i> {editId ? 'Edit Project' : 'New Project'}</h3>
                     <form className="dash-form" onSubmit={handleSubmit}>
                         <input type="text" placeholder="Project Title *" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
                         <textarea placeholder="Project Description *" required value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} />
@@ -282,7 +328,7 @@ function ProjectsTab() {
                             )}
                         </div>
                         <div className="dash-form-actions">
-                            <button type="submit" className="dash-submit-btn"><i className="fas fa-plus"></i> Add Project</button>
+                            <button type="submit" className="dash-submit-btn"><i className={`fas fa-${editId ? 'save' : 'plus'}`}></i> {editId ? 'Save Changes' : 'Add Project'}</button>
                             {status && <p className={`dash-status${isError ? ' err' : ''}`}>{status}</p>}
                         </div>
                     </form>
@@ -302,9 +348,14 @@ function ProjectsTab() {
                             <p>{p.desc}</p>
                             {p.link && <a href={p.link} target="_blank" rel="noreferrer">{p.link}</a>}
                         </div>
-                        <button className="dash-proj-del" onClick={() => setConfirm(p._id)}>
-                            <i className="fas fa-trash"></i> Delete Project
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', padding: '12px' }}>
+                            <button className="dash-submit-btn" style={{ flex: 1, margin: 0 }} onClick={() => openEdit(p)}>
+                                <i className="fas fa-edit"></i> Edit
+                            </button>
+                            <button className="dash-proj-del" style={{ flex: 1, margin: 0 }} onClick={() => setConfirm(p._id)}>
+                                <i className="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -387,7 +438,10 @@ function ProfileTab() {
                 <h3><i className="fas fa-file-alt"></i> CV / Resume</h3>
                 <div className="dash-cv-preview">
                     {current.cvFile
-                        ? <a href={`${API}${current.cvFile}`} target="_blank" rel="noreferrer" className="dash-cv-btn"><i className="fas fa-file-pdf"></i> View Current CV</a>
+                        ? <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <a href={`${API}${current.cvFile}`} target="_blank" rel="noreferrer" className="dash-cv-btn"><i className="fas fa-eye"></i> View CV</a>
+                            <a href={`${API}${current.cvFile}`} download className="dash-cv-btn"><i className="fas fa-download"></i> Download CV</a>
+                          </div>
                         : <p className="dash-cv-empty">No CV uploaded yet</p>}
                 </div>
                 {current.cvFile && <button className="dash-delete-btn" onClick={() => setConfirm('cv')}><i className="fas fa-trash"></i> Delete CV</button>}
@@ -395,7 +449,7 @@ function ProfileTab() {
                     <label className="dash-file-pick">
                         <i className="fas fa-file-upload"></i>
                         {cvFile ? cvFile.name : 'Choose CV file'}
-                        <input type="file" accept=".pdf,.doc,.docx" onChange={e => setCvFile(e.target.files[0])} />
+                        <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={e => setCvFile(e.target.files[0])} />
                     </label>
                     <button type="submit" className="dash-submit-btn" style={{ marginTop: '12px' }}>
                         {current.cvFile ? 'Change CV' : 'Upload CV'}
@@ -427,6 +481,7 @@ function SettingsTab() {
         <div className="dash-settings">
             <div className="dash-profile-card" style={{ maxWidth: '480px' }}>
                 <h3><i className="fas fa-key"></i> Change Password</h3>
+                <p className="dash-login-hint">This password is saved only in this browser. To use one password across browsers, set <strong>ADMIN_PASSWORD</strong> in your backend deployment.</p>
                 <form className="dash-form" onSubmit={handleSubmit}>
                     <div className="dash-input-group">
                         <i className="fas fa-lock"></i>

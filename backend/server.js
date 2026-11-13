@@ -4,6 +4,7 @@ const express = require('express')
 const cors = require('cors')
 const path = require('path')
 const fs = require('fs')
+const crypto = require('crypto')
 const multer = require('multer')
 const mongoose = require('mongoose')
 
@@ -63,6 +64,28 @@ app.use(cors({
 app.use(express.json())
 app.use('/uploads', express.static(uploadsDir))
 app.use(express.static(path.join(__dirname, '../frontend/dist')))
+
+app.post('/api/admin/login', (req, res) => {
+    const expectedPassword = process.env.ADMIN_PASSWORD
+    if (!expectedPassword) {
+        return res.status(503).json({
+            error: 'Admin login is not configured. Set ADMIN_PASSWORD on the backend.'
+        })
+    }
+
+    const password = req.body && req.body.password
+    if (typeof password !== 'string') {
+        return res.status(400).json({ error: 'Password is required.' })
+    }
+
+    const supplied = Buffer.from(password)
+    const expected = Buffer.from(expectedPassword)
+    const matches = supplied.length === expected.length &&
+        crypto.timingSafeEqual(supplied, expected)
+
+    if (!matches) return res.status(401).json({ error: 'Incorrect password. Try again.' })
+    res.json({ success: true })
+})
 
 // ── Multer ──
 const mkStorage = (dest) => multer.diskStorage({
@@ -180,7 +203,31 @@ app.delete('/api/profile/cv', wrap(async (_req, res) => {
     await p.save()
     res.json({ success: true })
 }))
+//update profile info
+app.put('/api/projects/:id', uploadProject.single('image'), wrap(async (req, res) => {
+    const { title, desc, link } = req.body
+    if (!title || !desc)
+        return res.status(400).json({ error: 'Title and description required.' })
+    
+    const project = await Project.findById(req.params.id)
+    if (!project) return res.status(404).json({ error: 'Project not found.' })
 
+    // If a new image is uploaded, delete the old image file if it exists
+    if (req.file) {
+        if (project.imageUrl) {
+            const oldPath = path.join(__dirname, project.imageUrl)
+            if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath)
+        }
+        project.imageUrl = '/uploads/projects/' + req.file.filename
+    }
+
+    project.title = title
+    project.desc = desc
+    project.link = link || ''
+    
+    await project.save()
+    res.json({ success: true, project })
+}))
 // ── Fallback → React ──
 // ── Backend health check ──
 app.get('/', (_req, res) => {

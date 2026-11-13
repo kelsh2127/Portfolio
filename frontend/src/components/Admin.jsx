@@ -460,28 +460,56 @@ function ProfileTab() {
     )
 }
 
+
+
 /* ── Settings ── */
 function SettingsTab() {
     const [form, setForm] = useState({ current: '', newPw: '', confirm: '' })
     const [status, setStatus] = useState('')
     const [isError, setIsError] = useState(false)
-    const getStoredPw = () => localStorage.getItem('admin_pw') || '123456'
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
-        if (form.current !== getStoredPw()) { setIsError(true); setStatus('Current password is incorrect.'); return }
-        if (form.newPw.length < 6) { setIsError(true); setStatus('New password must be at least 6 characters.'); return }
-        if (form.newPw !== form.confirm) { setIsError(true); setStatus('Passwords do not match.'); return }
-        localStorage.setItem('admin_pw', form.newPw)
-        setIsError(false); setStatus('Password changed successfully!')
-        setForm({ current: '', newPw: '', confirm: '' })
+        setStatus('Updating password...')
+        setIsError(false)
+
+        if (form.newPw.length < 6) { 
+            setIsError(true); 
+            setStatus('New password must be at least 6 characters.'); 
+            return 
+        }
+        if (form.newPw !== form.confirm) { 
+            setIsError(true); 
+            setStatus('Passwords do not match.'); 
+            return 
+        }
+
+        try {
+            const res = await fetch(`${API}/api/admin/password`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPassword: form.current, newPassword: form.newPw })
+            })
+            const data = await res.json()
+            if (res.ok) {
+                setIsError(false)
+                setStatus('Password changed successfully in Database! ✅')
+                setForm({ current: '', newPw: '', confirm: '' })
+            } else {
+                setIsError(true)
+                setStatus(data.error || 'Failed to update password.')
+            }
+        } catch {
+            setIsError(true)
+            setStatus('Server error connecting to database.')
+        }
     }
 
     return (
         <div className="dash-settings">
             <div className="dash-profile-card" style={{ maxWidth: '480px' }}>
-                <h3><i className="fas fa-key"></i> Change Password</h3>
-                <p className="dash-login-hint">This password is saved only in this browser. To use one password across browsers, set <strong>ADMIN_PASSWORD</strong> in your backend deployment.</p>
+                <h3><i className="fas fa-key"></i> Change Admin Password</h3>
+                <p className="dash-login-hint">This password is stored securely in your MongoDB database and applies instantly across both local and deployed environments.</p>
                 <form className="dash-form" onSubmit={handleSubmit}>
                     <div className="dash-input-group">
                         <i className="fas fa-lock"></i>

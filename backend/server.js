@@ -3,18 +3,44 @@ require('dotenv').config({ path: __dirname + '/.env' })
 const express = require('express')
 const cors = require('cors')
 const path = require('path')
-const fs = require('fs')
 const crypto = require('crypto')
 const multer = require('multer')
 const mongoose = require('mongoose')
+const nodemailer = require('nodemailer')
 
 const app = express()
 const PORT = process.env.PORT || 3003
 
-// ── MongoDB ──
+// ── Email Transporter ──
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+})
+
+// ── MongoDB Connection ──
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB connected ✅'))
+    .then(async () => {
+        console.log('MongoDB connected ✅')
+        await initializeAdmin()
+    })
     .catch((e) => console.error('MongoDB error ❌', e.message))
+
+// ── Password Hashing Helpers ──
+function hashPassword(password) {
+    const salt = crypto.randomBytes(16).toString('hex')
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex')
+    return `${salt}:${hash}`
+}
+
+function verifyPassword(password, stored) {
+    if (!stored || !stored.includes(':')) return false
+    const [salt, key] = stored.split(':')
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex')
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(key, 'hex'))
+}
 
 // ── Schemas ──
 const Message = mongoose.model('Message', new mongoose.Schema({
@@ -32,15 +58,29 @@ const Profile = mongoose.model('Profile', new mongoose.Schema({
     cvFile: { type: String, default: null }
 }))
 
-// ── Upload dirs ──
-const uploadsDir = path.join(__dirname, 'uploads')
-const projectsDir = path.join(uploadsDir, 'projects')
-const profileDir = path.join(uploadsDir, 'profile')
-    ;[uploadsDir, projectsDir, profileDir].forEach((d) => {
-        if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true })
-    })
+const AdminSchema = new mongoose.Schema({
+    username: { type: String, default: 'admin' },
+    passwordHash: { type: String, required: true }
+})
+const Admin = mongoose.model('Admin', AdminSchema)
 
-// ── Middleware ──
+async function initializeAdmin() {
+    let admin = await Admin.findOne()
+    if (!admin) {
+        const initialPw = process.env.ADMIN_PASSWORD || '123456'
+        await Admin.create({ passwordHash: hashPassword(initialPw) })
+        console.log('Default admin credentials initialized in MongoDB 🔒')
+    }
+}
+
+// ── Multer (Memory Storage) ──
+const upload = multer({ storage: multer.memoryStorage() })
+
+const fileToBase64 = (file) => {
+    if (!file) return null
+    return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
+}
+
 // ── Middleware ──
 const allowedOrigins = [
     'http://localhost:5173',
@@ -49,66 +89,72 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (
-            !origin ||
-            allowedOrigins.includes(origin) ||
-            /\.vercel\.app$/.test(new URL(origin).hostname)
-        ) {
+        if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/.test(new URL(origin).hostname)) {
             return callback(null, true)
         }
-
         callback(new Error('Not allowed by CORS'))
     }
 }))
 
 app.use(express.json())
-app.use('/uploads', express.static(uploadsDir))
 app.use(express.static(path.join(__dirname, '../frontend/dist')))
 
-app.post('/api/admin/login', (req, res) => {
-    const expectedPassword = process.env.ADMIN_PASSWORD
-    if (!expectedPassword) {
-        return res.status(503).json({
-            error: 'Admin login is not configured. Set ADMIN_PASSWORD on the backend.'
+// helper — Hoisted function wrapper so it can be used anywhere in routes
+function wrap(fn) {
+    return (req, res, next) => {
+        Promise.resolve(fn(req, res, next)).catch((err) => {
+            console.error('Route error:', err.message)
+            res.status(500).json({ error: err.message || 'Server error.' })
         })
     }
+}
 
-    const password = req.body && req.body.password
+// ── Admin Auth & Password Management ──
+app.post('/api/admin/login', wrap(async (req, res) => {
+    const { password } = req.body
     if (typeof password !== 'string') {
         return res.status(400).json({ error: 'Password is required.' })
     }
-
-    const supplied = Buffer.from(password)
-    const expected = Buffer.from(expectedPassword)
-    const matches = supplied.length === expected.length &&
-        crypto.timingSafeEqual(supplied, expected)
-
-    if (!matches) return res.status(401).json({ error: 'Incorrect password. Try again.' })
+    const admin = await Admin.findOne()
+    if (!admin || !verifyPassword(password, admin.passwordHash)) {
+        return res.status(401).json({ error: 'Incorrect password. Try again.' })
+    }
     res.json({ success: true })
-})
+}))
 
-// ── Multer ──
-const mkStorage = (dest) => multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, dest),
-    filename: (_req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
-})
-const uploadProject = multer({ storage: mkStorage(projectsDir) })
-const uploadProfile = multer({ storage: mkStorage(profileDir) })
-
-// helper — wraps async route so any thrown error returns JSON
-const wrap = (fn) => (req, res, next) =>
-    Promise.resolve(fn(req, res, next)).catch((err) => {
-        console.error('Route error:', err.message)
-        res.status(500).json({ error: err.message || 'Server error.' })
-    })
+app.put('/api/admin/password', wrap(async (req, res) => {
+    const { currentPassword, newPassword } = req.body
+    if (!currentPassword || !newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: 'Valid current password and new password (min 6 chars) required.' })
+    }
+    const admin = await Admin.findOne()
+    if (!admin || !verifyPassword(currentPassword, admin.passwordHash)) {
+        return res.status(401).json({ error: 'Current password is incorrect.' })
+    }
+    admin.passwordHash = hashPassword(newPassword)
+    await admin.save()
+    res.json({ success: true, message: 'Password updated successfully in database!' })
+}))
 
 // ── Contact ──
 app.post('/api/contact', wrap(async (req, res) => {
     const { name, email, subject, message } = req.body
     if (!name || !email || !message)
         return res.status(400).json({ error: 'Name, email and message are required.' })
+
     await Message.create({ name, email, subject: subject || '', message })
-    res.json({ success: true, message: 'Message received!' })
+
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        await transporter.sendMail({
+            from: `"Portfolio Contact" <${process.env.EMAIL_USER}>`,
+            to: process.env.EMAIL_USER,
+            replyTo: email,
+            subject: `New Portfolio Message: ${subject || 'No Subject'}`,
+            text: `You received a new message from your portfolio:\n\nName: ${name}\nEmail: ${email}\nSubject: ${subject || 'N/A'}\n\nMessage:\n${message}`
+        }).catch(err => console.error('Email error:', err.message))
+    }
+
+    res.json({ success: true, message: 'Message received and emailed!' })
 }))
 
 app.get('/api/messages', wrap(async (_req, res) => {
@@ -125,24 +171,37 @@ app.get('/api/projects', wrap(async (_req, res) => {
     res.json(await Project.find().sort({ createdAt: -1 }))
 }))
 
-app.post('/api/projects', uploadProject.single('image'), wrap(async (req, res) => {
+app.post('/api/projects', upload.single('image'), wrap(async (req, res) => {
     const { title, desc, link } = req.body
     if (!title || !desc)
         return res.status(400).json({ error: 'Title and description required.' })
     const project = await Project.create({
         title, desc, link: link || '',
-        imageUrl: req.file ? '/uploads/projects/' + req.file.filename : null
+        imageUrl: fileToBase64(req.file)
     })
     res.json({ success: true, project })
 }))
 
-app.delete('/api/projects/:id', wrap(async (req, res) => {
+app.put('/api/projects/:id', upload.single('image'), wrap(async (req, res) => {
+    const { title, desc, link } = req.body
+    if (!title || !desc)
+        return res.status(400).json({ error: 'Title and description required.' })
+
     const project = await Project.findById(req.params.id)
-    if (!project) return res.status(404).json({ error: 'Not found.' })
-    if (project.imageUrl) {
-        const fp = path.join(__dirname, project.imageUrl)
-        if (fs.existsSync(fp)) fs.unlinkSync(fp)
+    if (!project) return res.status(404).json({ error: 'Project not found.' })
+
+    project.title = title
+    project.desc = desc
+    project.link = link || ''
+    if (req.file) {
+        project.imageUrl = fileToBase64(req.file)
     }
+
+    await project.save()
+    res.json({ success: true, project })
+}))
+
+app.delete('/api/projects/:id', wrap(async (req, res) => {
     await Project.findByIdAndDelete(req.params.id)
     res.json({ success: true })
 }))
@@ -158,85 +217,42 @@ app.get('/api/profile', wrap(async (_req, res) => {
     res.json(await getProfile())
 }))
 
-app.post('/api/profile/image', uploadProfile.single('profile'), wrap(async (req, res) => {
+app.post('/api/profile/image', upload.single('profile'), wrap(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' })
     const p = await getProfile()
-    if (p.profileImage) {
-        const old = path.join(__dirname, p.profileImage)
-        if (fs.existsSync(old)) fs.unlinkSync(old)
-    }
-    p.profileImage = '/uploads/profile/' + req.file.filename
+    p.profileImage = fileToBase64(req.file)
     await p.save()
     res.json({ success: true, imageUrl: p.profileImage })
 }))
 
 app.delete('/api/profile/image', wrap(async (_req, res) => {
     const p = await getProfile()
-    if (p.profileImage) {
-        const fp = path.join(__dirname, p.profileImage)
-        if (fs.existsSync(fp)) fs.unlinkSync(fp)
-    }
     p.profileImage = null
     await p.save()
     res.json({ success: true })
 }))
 
-app.post('/api/profile/cv', uploadProfile.single('cv'), wrap(async (req, res) => {
+app.post('/api/profile/cv', upload.single('cv'), wrap(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' })
     const p = await getProfile()
-    if (p.cvFile) {
-        const old = path.join(__dirname, p.cvFile)
-        if (fs.existsSync(old)) fs.unlinkSync(old)
-    }
-    p.cvFile = '/uploads/profile/' + req.file.filename
+    p.cvFile = fileToBase64(req.file)
     await p.save()
     res.json({ success: true, cvUrl: p.cvFile })
 }))
 
 app.delete('/api/profile/cv', wrap(async (_req, res) => {
     const p = await getProfile()
-    if (p.cvFile) {
-        const fp = path.join(__dirname, p.cvFile)
-        if (fs.existsSync(fp)) fs.unlinkSync(fp)
-    }
     p.cvFile = null
     await p.save()
     res.json({ success: true })
 }))
-//update profile info
-app.put('/api/projects/:id', uploadProject.single('image'), wrap(async (req, res) => {
-    const { title, desc, link } = req.body
-    if (!title || !desc)
-        return res.status(400).json({ error: 'Title and description required.' })
-    
-    const project = await Project.findById(req.params.id)
-    if (!project) return res.status(404).json({ error: 'Project not found.' })
 
-    // If a new image is uploaded, delete the old image file if it exists
-    if (req.file) {
-        if (project.imageUrl) {
-            const oldPath = path.join(__dirname, project.imageUrl)
-            if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath)
-        }
-        project.imageUrl = '/uploads/projects/' + req.file.filename
-    }
-
-    project.title = title
-    project.desc = desc
-    project.link = link || ''
-    
-    await project.save()
-    res.json({ success: true, project })
-}))
-// ── Fallback → React ──
 // ── Backend health check ──
 app.get('/', (_req, res) => {
     res.json({
         success: true,
         message: 'Portfolio backend is running 🚀',
-        database: mongoose.connection.readyState === 1
-            ? 'Connected'
-            : 'Disconnected'
+        database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
     })
 })
 

@@ -17,7 +17,7 @@ export default function Portfolio() {
 
     return (
         <section className="portfolio-section" id="portfolio">
-            <h2 id="myk">Training <span>Projects</span></h2>
+            <h2 id="myk">Featured<span>Projects</span></h2>
             <div className="proj-grid">
                 {projects.map((p) => (
                     <div className="proj-card" key={p._id}>

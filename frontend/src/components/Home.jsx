@@ -21,7 +21,7 @@ export default function Home() {
         script.src = 'https://cdn.jsdelivr.net/npm/typed.js@2.0.12'
         script.onload = () => {
             typedRef.current = new window.Typed('.typed-text', {
-                strings: ['FullStack Web Developer', 'Graphics Designer'],
+                strings: ['a FullStack Web Developer', 'an Aspiring AI & Machine Learning Engineer'],
                 typeSpeed: 100,
                 backSpeed: 100,
                 backDelay: 1000,
@@ -37,7 +37,7 @@ export default function Home() {
             <div className="home-contact">
                 <h3>Hello, it is me</h3>
                 <h1>Kelem Zhekale</h1>
-                <h3>And I Am a <span className="typed-text"></span></h3>
+                <h3>And I Am <span className="typed-text"></span></h3>
                 <p>
                     I am a software engineering student at Wollo University, passionate about
                     building web applications and solving real-world problems through technology.

@@ -65,7 +65,7 @@
 
 .home-contact h3 span {
     color: blue;
-    text-shadow: 0px 20px 5px blue, 0px -5px 0px red;
+    text-shadow: 0px 10px 5px rgba(0, 0, 255, 0.872), 0px -5px 0px rgba(255, 0, 0, 0.785);
 }
 
 .home-contact h1 {
